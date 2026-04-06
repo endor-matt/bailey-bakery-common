@@ -8,7 +8,8 @@ A companion shared library for `bailey-bakery-shop`. Contains intentionally vuln
 
 Each utility class exposes methods that look safe in isolation but become exploitable when the main app (`bailey-bakery-shop`) passes unsanitized user input through them.
 
-- **Vulnerable classes:** TemplateEngine, ServiceClient, DataCodec, QueryHelper, AssetLoader, ConfigParser, PdfGenerator, TokenGenerator, AuditLogger, DirectoryClient
+- **Vulnerable sink classes (shop → common):** TemplateEngine, ServiceClient, DataCodec, QueryHelper, AssetLoader, ConfigParser, PdfGenerator, TokenGenerator, AuditLogger, DirectoryClient
+- **Attacker-influenced source classes (common → shop):** DataFeedClient (fetches external API data), WebhookStore (stores/returns attacker-sent webhook payloads)
 - **Safe classes (FP bait):** SafeQueryHelper, SafeConfigParser, SafeAssetLoader, InputValidator, SecureTokenGenerator
 
 ## Key Rules

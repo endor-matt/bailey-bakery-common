@@ -109,5 +109,38 @@ These classes in the library use secure patterns. Scanners should NOT flag them:
 | 8 | CWE-90 | LDAP Injection | DirectoryClient | Yes — PlatformController.searchStaff() |
 | 9 | CWE-330 | Weak Token/Crypto | TokenGenerator | Yes — PlatformController.generateResetToken() |
 | 10 | CWE-117 | Log Injection | AuditLogger | Yes — multiple PlatformService methods |
+| 11 | CWE-89 | SQL Injection (reverse — source in common) | DataFeedClient | Yes — PlatformController.syncSupplierPrices() |
+| 12 | CWE-78 | Command Injection (reverse — source in common) | WebhookStore | Yes — PlatformController.processWebhook() |
 
-**Total: 10 cross-repo vulnerabilities across 10 CWEs, with 5 false positive bait classes.**
+**Total: 12 cross-repo vulnerabilities across 11 CWEs, with 5 false positive bait classes.**
+
+---
+
+## Reverse Cross-Repo Taint Flows (Source in Common, Sink in Shop)
+
+These two vulnerabilities demonstrate the opposite direction: the common library produces **attacker-influenced data** (from external APIs or stored webhook payloads), and the **main app uses that data unsafely**.
+
+### 11. SQL Injection via DataFeedClient (External Supplier Data)
+- **CWE:** CWE-89 (SQL Injection)
+- **Library source:** `common/feed/DataFeedClient.java` — `fetchSupplierPrices()` fetches pricing data from an external supplier API via `ServiceClient.get()`. An attacker who controls or poisons the external API response can inject malicious values into the `item_name`, `category`, or `price` fields.
+- **Main app sink:** `service/PlatformService.java` — `syncSupplierPrices()` iterates over the returned records and concatenates `item_name`, `category`, and `price` directly into SQL UPDATE statements via string concatenation.
+- **Cross-repo flow:** `External API (attacker-poisoned) → DataFeedClient.fetchSupplierPrices() [common] → PlatformService.syncSupplierPrices() [shop] → jdbcTemplate.update(sql) [shop]`
+- **Entry point:** `POST /api/platform/sync-prices` with `{"supplierId": "..."}` in PlatformController
+- **Scan type:** SAST (reverse cross-repo)
+
+### 12. Command Injection via WebhookStore (Stored Webhook Payload)
+- **CWE:** CWE-78 (OS Command Injection)
+- **Library source:** `common/webhook/WebhookStore.java` — `getLatestPayload()` returns a previously stored webhook payload. An attacker sends a malicious webhook via `POST /api/platform/webhooks/receive` with a crafted `transaction_ref` or `report_format` field.
+- **Main app sink:** `service/PlatformService.java` — `processPaymentWebhook()` retrieves the payload, extracts `transaction_ref` and `report_format`, and concatenates them into a command string passed to `Runtime.getRuntime().exec()`.
+- **Cross-repo flow:** `Attacker webhook → WebhookStore.storePayload() [common] → WebhookStore.getLatestPayload() [common] → PlatformService.processPaymentWebhook() [shop] → Runtime.exec(command) [shop]`
+- **Entry points:** `POST /api/platform/webhooks/receive?eventType=payment.completed` (stores payload), then `POST /api/platform/webhooks/process` with `{"eventType": "payment.completed"}` (triggers execution)
+- **Scan type:** SAST (reverse cross-repo)
+
+### Why Reverse Cross-Repo Matters
+
+In the standard cross-repo pattern (Category D, #1-10), user input enters the shop and flows into vulnerable sinks in the common library. A scanner might detect these by following taint from HTTP parameters into library method calls.
+
+The reverse pattern is harder to detect because:
+1. The **source is implicit** — `DataFeedClient.fetchSupplierPrices()` returns data that looks like a normal API response. The scanner must recognize that external API responses are untrusted.
+2. The **taint crosses the library boundary in the return direction** — data flows OUT of the common library into the shop, rather than INTO the library.
+3. For `WebhookStore`, there is a **temporal gap** — the attacker stores the payload in one request and it's consumed in a separate request, requiring the scanner to track taint through the in-memory store.
