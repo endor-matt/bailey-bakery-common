@@ -6,7 +6,7 @@
 
     <groupId>com.baileybakery</groupId>
     <artifactId>bailey-bakery-common</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>Bailey Bakery Common</name>
