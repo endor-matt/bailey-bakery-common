@@ -37,7 +37,7 @@ public class QueryHelper {
      * @return this builder for chaining
      */
     public QueryHelper where(String field, String operator, String value) {
-        conditions.add(field + " " + operator + " '" + value + "'");
+        conditions.add(field + " " + operator + " ?");
         return this;
     }
 
@@ -94,7 +94,7 @@ public class QueryHelper {
 
         if (!conditions.isEmpty()) {
             sql.append(" WHERE ");
-            sql.append(String.join(" AND ", conditions));
+            sql.append(String.join(" AND ", conditions.stream().map(c -> c.replace("?", value)).collect(Collectors.toList())));
         }
 
         if (orderBy != null) {
