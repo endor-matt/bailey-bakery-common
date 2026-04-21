@@ -31,7 +31,7 @@ public class TokenGenerator {
         String seed = userId + ":" + window;
 
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(seed.getBytes());
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
@@ -49,7 +49,7 @@ public class TokenGenerator {
         String seed = email + ":" + random.nextLong();
 
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(seed.getBytes());
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
