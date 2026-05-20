@@ -37,7 +37,8 @@ public class DirectoryClient {
         List<Map<String, String>> results = new ArrayList<>();
 
         try {
-            String filter = "(|(cn=" + searchTerm + ")(department=" + searchTerm + "))";
+            String escapedTerm = escapeLdapFilterValue(searchTerm);
+            String filter = "(|(cn=" + escapedTerm + ")(department=" + escapedTerm + "))";
             log.info("LDAP search with filter: {}", filter);
 
             SearchControls controls = new SearchControls();
@@ -75,7 +76,7 @@ public class DirectoryClient {
         DirContext ctx = createContext();
 
         try {
-            String filter = "(uid=" + username + ")";
+            String filter = "(uid=" + escapeLdapFilterValue(username) + ")";
             SearchControls controls = new SearchControls();
             controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
 
@@ -98,6 +99,28 @@ public class DirectoryClient {
         }
 
         return null;
+    }
+
+    /**
+     * Escapes LDAP filter special characters per RFC 4515.
+     * Prevents LDAP injection by neutralizing metacharacters in user-supplied values.
+     */
+    private String escapeLdapFilterValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(value.length());
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '*':  sb.append("\\2a"); break;
+                case '(':  sb.append("\\28"); break;
+                case ')':  sb.append("\\29"); break;
+                case '\\': sb.append("\\5c"); break;
+                case '\0': sb.append("\\00"); break;
+                default:   sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private DirContext createContext() throws Exception {
