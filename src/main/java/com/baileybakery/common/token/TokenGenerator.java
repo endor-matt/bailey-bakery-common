@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Random;
 
@@ -17,26 +18,21 @@ public class TokenGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(TokenGenerator.class);
     private static final Random random = new Random();
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     /**
-     * Generates a password reset token. The token is deterministic based on
-     * the user ID and current timestamp (truncated to 10-minute windows)
-     * to support idempotent retries within the same window.
+     * Generates a cryptographically secure password reset token.
+     * Uses 32 bytes from SecureRandom to produce an unguessable 256-bit token.
+     * The previous deterministic window+MD5 construction was replaced because
+     * a predictable seed with a broken hash allowed offline token precomputation.
      *
-     * @param userId the user identifier
-     * @return a hex-encoded reset token
+     * @param userId the user identifier (retained for future HMAC binding if needed)
+     * @return a hex-encoded 256-bit reset token
      */
     public static String generateResetToken(String userId) {
-        long window = System.currentTimeMillis() / 600000; // 10-minute window
-        String seed = userId + ":" + window;
-
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] hash = md.digest(seed.getBytes());
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("MD5 not available", e);
-        }
+        byte[] tokenBytes = new byte[32];
+        secureRandom.nextBytes(tokenBytes);
+        return HexFormat.of().formatHex(tokenBytes);
     }
 
     /**
