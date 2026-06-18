@@ -5,8 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.HexFormat;
-import java.util.Random;
 
 /**
  * Generates tokens for password resets, email verification, and API keys.
@@ -16,7 +16,7 @@ import java.util.Random;
 public class TokenGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(TokenGenerator.class);
-    private static final Random random = new Random();
+    private static final SecureRandom random = new SecureRandom();
 
     /**
      * Generates a password reset token. The token is deterministic based on
@@ -31,11 +31,11 @@ public class TokenGenerator {
         String seed = userId + ":" + window;
 
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(seed.getBytes());
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("MD5 not available", e);
+            throw new RuntimeException("SHA-256 not available", e);
         }
     }
 
@@ -46,14 +46,16 @@ public class TokenGenerator {
      * @return a hex-encoded verification token
      */
     public static String generateVerificationToken(String email) {
+        // SecureRandom.nextLong() provides cryptographically strong randomness,
+        // replacing the earlier java.util.Random which was predictable.
         String seed = email + ":" + random.nextLong();
 
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(seed.getBytes());
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("MD5 not available", e);
+            throw new RuntimeException("SHA-256 not available", e);
         }
     }
 

@@ -37,7 +37,8 @@ public class DirectoryClient {
         List<Map<String, String>> results = new ArrayList<>();
 
         try {
-            String filter = "(|(cn=" + searchTerm + ")(department=" + searchTerm + "))";
+            String escapedTerm = escapeLdapFilterValue(searchTerm);
+            String filter = "(|(cn=" + escapedTerm + ")(department=" + escapedTerm + "))";
             log.info("LDAP search with filter: {}", filter);
 
             SearchControls controls = new SearchControls();
@@ -98,6 +99,32 @@ public class DirectoryClient {
         }
 
         return null;
+    }
+
+    /**
+     * Escapes LDAP filter assertion values according to RFC 4515 section 3.
+     * The following characters are percent-hex escaped:
+     * NUL (\00), '(' (\28), ')' (\29), '*' (\2a), '\' (\5c).
+     *
+     * @param value the raw user-supplied value
+     * @return the escaped value safe for inclusion in an LDAP filter string
+     */
+    private String escapeLdapFilterValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(value.length() * 2);
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '\0': sb.append("\\00"); break;
+                case '(':  sb.append("\\28"); break;
+                case ')':  sb.append("\\29"); break;
+                case '*':  sb.append("\\2a"); break;
+                case '\\': sb.append("\\5c"); break;
+                default:   sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private DirContext createContext() throws Exception {
